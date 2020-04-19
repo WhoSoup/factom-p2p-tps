@@ -1,0 +1,46 @@
+<h1>The Network is currently turned off</h1>
+
+<form action="/enable" method="POST">
+<table>
+    <tr>
+        <td>Name</td>
+        <td><input type="text" name="name" value="Node0"></td>
+    </tr>
+    <tr>
+        <td>P2P Port</td>
+        <td><input type="text" name="p2pport" value="8111"></td>
+    </tr>
+    <tr>
+        <td>Protocol</td>
+        <td><select name="protocol">
+            <option value="p2p1-v9">Old library</option>
+            <option value="p2p2-v9">P2P2 V9</option>
+            <option value="p2p2-v10" selected>P2P2 V10</option>
+            <option value="p2p2-v11">P2P2 V11</option>
+        </select></td>
+    </tr>
+    <tr>
+        <td>Seed Server</td>
+        <td><input type="text" name="seed" value="http://localhost:8112"></td>
+    </tr>
+    <tr>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr><td colspan="2"><hr></td></tr>
+    <tr>
+        <td></td>
+        <td><label for="seed-start"><input type="checkbox" name="seed-start" id="seed-start" value="1">Start a Seed Server</label></td>
+    </tr>
+    <tr>
+        <td>Seed Server Port</td>
+        <td><input type="text" name="seed-port" value="8112"></td>
+    </tr>
+    <tr>
+        <td>Seed Server Contents<br>(one ip per line)</td>
+        <td><textarea name="seed-contents" rows="5">127.0.0.1:8111</textarea></td>
+    </tr>
+    <tr><td colspan="2"><hr></td></tr>
+    <tr><td colspan="2"><button type="submit">Connect</button></td></tr>
+</table>
+</form>

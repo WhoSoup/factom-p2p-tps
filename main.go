@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/WhoSoup/factom-p2p-max/network"
+	"github.com/WhoSoup/factom-p2p-tps/network"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -18,14 +18,15 @@ func main() {
 	p2p1 := flag.Bool("p2p1", false, "enable to use the original factom p2p codebase. limited to v9")
 	version := flag.Int("v", 10, "the protocol version to use. 9, 10, or 11")
 	name := flag.String("name", "", "the name of this specific node")
-	port := flag.String("port", "8111", "the port to use for this client (if running multiple nodes on one machine)")
+	port := flag.String("port", "7999", "the port for the control panel")
+	p2pport := flag.String("p2pport", "8111", "the port to use for this client (if running multiple nodes on one machine)")
 	seed := flag.String("seed", "", "the url of the seed server")
 	flag.StringVar(&seedServer, "seedserver", "", "if this is set, a seed server is started containing the addresses listed (comma separated)")
 	flag.StringVar(&seedPort, "seedport", "8112", "the port of the seed server")
 	flag.Parse()
 
-	if _, err := strconv.Atoi(*port); err != nil {
-		log.Fatal().Str("port", *port).Msg("port must be a number")
+	if _, err := strconv.Atoi(*p2pport); err != nil {
+		log.Fatal().Str("port", *p2pport).Msg("port must be a number")
 	}
 
 	if seedServer != "" {
@@ -45,9 +46,9 @@ func main() {
 		}
 	}
 
-	n.Init(*name, *port, *seed)
+	n.Init(*name, *p2pport, *seed)
 
-	cp, err := NewControlPanel(*port)
+	cp, err := NewControlPanel(*port, n)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to start control panel")
 	}

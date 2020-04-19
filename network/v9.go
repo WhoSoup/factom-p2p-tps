@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/FactomProject/factomd/p2p"
-	"github.com/WhoSoup/factom-p2p-max/app"
+	"github.com/WhoSoup/factom-p2p-tps/app"
 	"github.com/rs/zerolog/log"
 )
 
