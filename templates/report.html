@@ -1,0 +1,21 @@
+<h2>App Report</h2>
+<table>
+    <tr>
+        <td>Message</td>
+        <td>Received</td>
+        <td>Total</td>
+        <td>Waste %</td>
+        <td>Sent</td>
+    </tr>
+{{ range $key, $val := .NonDupeMessages }}
+{{- if $key }}
+<tr>
+    <td>{{ $.Name $key }}</td>
+    <td>{{ . }}</td>
+    <td>{{ index $.Messages $key }}</td>
+    <td>{{ $.Waste $key }} </td>
+    <td>{{ index $.Sent $key }}</td>
+</tr>
+{{ end }}
+{{ end }}
+</table>

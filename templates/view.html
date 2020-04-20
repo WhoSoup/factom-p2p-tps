@@ -1,1 +1,34 @@
-foo
+<div id="tps"><h2>Load Generator</h2>
+<form action="/eps" method="POST">
+<table>
+    <tr>
+        <td></td>
+        <td><label for="enable"><input type="checkbox" id="enable" name="enable" value="1" {{if index . "load" }}checked{{end}}> Enable EPS Generator</label></td>
+    </tr>
+    <tr>
+        <td>Target EPS</td>
+        <td><input type="text" name="eps" value="{{ index . "eps" }}"></td>
+    </tr>
+    <tr>
+        <td>Feds</td>
+        <td><input type="text" name="feds" value="{{ index . "feds" }}"></td>
+    </tr>
+    <tr>
+        <td>Audits</td>
+        <td><input type="text" name="audits" value="{{ index . "eps" }}"></td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><button type="submit">Go</button></td>
+    </tr>
+</table>
+</form>    
+</div>
+
+<div id="peers">&nbsp;</div><div id="report">&nbsp;</div>
+<script type="text/javascript">
+$(document).ready(function() {
+    setInterval(showPeers, 500);
+    setInterval(showReport, 500);
+});
+</script>

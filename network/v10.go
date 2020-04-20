@@ -45,11 +45,15 @@ func (v10 *V10) DeliverMessage(target string, payload []byte) {
 	v10.n.Send(parc)
 }
 
-func (v10 *V10) ReadMessage() (string, byte) {
+func (v10 *V10) ReadMessage() (string, []byte) {
 	p := <-v10.n.Reader()
 	if len(p.Payload) == 0 {
 		log.Error().Str("peer", p.Address).Msg("received empty payload message")
-		return p.Address, 0
+		return p.Address, nil
 	}
-	return p.Address, p.Payload[0]
+	return p.Address, p.Payload
 }
+
+func (v10 *V10) FullBroadcastFlag() string { return p2p.FullBroadcast }
+func (v10 *V10) BroadcastFlag() string     { return p2p.Broadcast }
+func (v10 *V10) RandomFlag() string        { return p2p.RandomPeer }

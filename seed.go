@@ -17,7 +17,7 @@ func NewSeedServer(port, seeds string) *SeedServer {
 	srv := new(SeedServer)
 	srv.port = port
 
-	split := strings.Split(seeds, ",")
+	split := strings.Split(seeds, "\n")
 	srv.seeds = make([]string, 0, len(split))
 	for _, s := range split {
 		s = strings.TrimSpace(s)

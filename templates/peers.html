@@ -1,0 +1,10 @@
+{{ if . }}
+<h2>Peers ({{ len . }})</h2>
+<ul>
+{{- range $key, $val := . }}
+    <li>{{$val}}</li>
+{{ end }}
+</ul>
+{{ else }}
+<li>No peers connected</li>
+{{ end }}

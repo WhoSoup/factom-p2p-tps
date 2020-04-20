@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/FactomProject/factomd/p2p"
-	"github.com/WhoSoup/factom-p2p-tps/app"
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,14 +45,14 @@ func (v9 *V9) Start() {
 func (v9 *V9) Init(name, port, seed string) error {
 	v9.metrics = make(chan interface{}, p2p.StandardChannelSize)
 	p2p.NetworkDeadline = time.Minute * 5
-	p2p.CurrentNetwork = app.NetworkID
+	p2p.CurrentNetwork = NetworkID
 	p2p.NetworkListenPort = port
 
 	ci := p2p.ControllerInit{
 		NodeName:                 name,
 		Port:                     port,
 		PeersFile:                "",
-		Network:                  app.NetworkID,
+		Network:                  NetworkID,
 		Exclusive:                false,
 		ExclusiveIn:              false,
 		SeedURL:                  seed,
@@ -67,7 +66,7 @@ func (v9 *V9) Init(name, port, seed string) error {
 
 func (v9 *V9) Peers() []string { return v9.connected }
 func (v9 *V9) DeliverMessage(target string, payload []byte) {
-	parc := p2p.NewParcel(app.NetworkID, payload)
+	parc := p2p.NewParcel(NetworkID, payload)
 	if target == "" {
 		target = p2p.BroadcastFlag
 	}
@@ -76,15 +75,19 @@ func (v9 *V9) DeliverMessage(target string, payload []byte) {
 
 	p2p.BlockFreeChannelSend(v9.controller.ToNetwork, parc)
 }
-func (v9 *V9) ReadMessage() (string, byte) {
+func (v9 *V9) ReadMessage() (string, []byte) {
 	raw := <-v9.controller.FromNetwork
 	if parc, ok := raw.(p2p.Parcel); ok {
 		if len(parc.Payload) > 0 {
-			return parc.Header.TargetPeer, parc.Payload[0]
+			return parc.Header.TargetPeer, parc.Payload
 		}
 		log.Error().Str("peer", parc.Header.TargetPeer).Msg("received empty payload message")
-		return parc.Header.TargetPeer, 0
+		return parc.Header.TargetPeer, nil
 	}
 	log.Error().Str("type", fmt.Sprintf("%t", raw)).Msg("received non-parcel message")
-	return "", 0
+	return "", nil
 }
+
+func (v9 *V9) FullBroadcastFlag() string { return p2p.FullBroadcastFlag }
+func (v9 *V9) BroadcastFlag() string     { return p2p.BroadcastFlag }
+func (v9 *V9) RandomFlag() string        { return p2p.RandomPeerFlag }
