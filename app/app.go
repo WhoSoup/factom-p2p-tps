@@ -23,6 +23,9 @@ type App struct {
 	generate          bool
 	feds, audits, eps int
 
+	loadchange chan int
+	loadcancel func()
+
 	stats *Stats
 }
 
@@ -50,20 +53,52 @@ func NewApp() *App {
 	a.stats.Messages = make([]uint64, MESSAGEMAX)
 	a.stats.Sent = make([]uint64, MESSAGEMAX)
 	a.stats.NonDupeMessages = make([]uint64, MESSAGEMAX)
+	a.loadchange = make(chan int)
 
-	a.gen = new(Generator)
+	a.gen = NewGenerator(entryPercent)
 
 	rand.Seed(time.Now().UnixNano())
 	a.replay = NewReplay(time.Minute, 10)
 	return a
 }
 
-func (a *App) SetNetwork(n network.Network) {
-	a.n = n
-}
-
 func (a *App) Stats() *Stats {
 	return a.stats
+}
+
+func (a *App) generateLoad() {
+	for l := range a.loadchange {
+		if a.loadcancel != nil {
+			a.loadcancel()
+			a.loadcancel = nil
+		}
+
+		if l <= 0 {
+			log.Info().Msg("stopping load gen")
+			continue
+		}
+
+		stopper := make(chan interface{})
+		a.loadcancel = func() {
+			close(stopper)
+		}
+
+		go func(eps int) {
+			t := time.Second / time.Duration(eps)
+			log.Info().Int("eps", eps).Dur("interval", t).Msg("starting load gen")
+			defer log.Info().Int("eps", eps).Dur("interval", t).Msg("ending load gen")
+			ticker := time.NewTicker(t)
+			for range ticker.C {
+				select {
+				case <-stopper:
+					return
+				default:
+				}
+
+				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(a.gen.WeightedRandomType()))
+			}
+		}(l)
+	}
 }
 
 func (a *App) worker() {
@@ -80,16 +115,17 @@ func (a *App) worker() {
 		a.stats.mtx.RUnlock()
 
 		if !a.replay.Dupe(fmt.Sprintf("%x", hash)) {
-
 			sent := byte(0)
 			switch msg[0] {
 			case ACK, EOM, Heartbeat, CommitChain, CommitEntry, RevealEntry, DBSig, Transaction: // rebroadcast
 				a.n.DeliverMessage(a.n.BroadcastFlag(), msg)
 				sent = msg[0]
-			case MissingMsg: // reply
+			case MissingMsg: // rebroadcast and reply
+				a.n.DeliverMessage(a.n.BroadcastFlag(), msg)
 				a.n.DeliverMessage(peer, a.gen.CreateMessage(MissingReply))
 				sent = MissingReply
 			case DBStateRequest:
+				a.n.DeliverMessage(a.n.BroadcastFlag(), msg)
 				a.n.DeliverMessage(peer, a.gen.CreateMessage(DBStateReply))
 				sent = DBStateReply
 			case MissingReply, DBStateReply:
@@ -103,12 +139,17 @@ func (a *App) worker() {
 				a.stats.Sent[sent]++
 			}
 			a.stats.mtx.Unlock()
+
+			if a.generate && msg[0] == ACK && rand.Float64() < missingmsgLikelihood {
+				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(MissingMsg))
+			}
 		}
 
 	}
 }
 
-func (a *App) Launch() {
+func (a *App) Launch(n network.Network) {
+	a.n = n
 
 	for i := 0; i < workers; i++ {
 		go a.worker()
@@ -140,11 +181,19 @@ func (a *App) sendEOMs() {
 	a.mtx.RLock()
 	defer a.mtx.RUnlock()
 	// seed these out to random peers first
+	typ := EOM
+	if a.Minute == 0 {
+		typ = DBSig
+	}
 	for i := 0; i < a.feds; i++ {
-		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(EOM))
+		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(typ))
 	}
 	for i := 0; i < a.audits; i++ {
 		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(Heartbeat))
+	}
+
+	if a.Minute == 0 && rand.Float64() < dbstateLikelihood {
+		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(DBStateRequest))
 	}
 }
 
@@ -157,7 +206,7 @@ func (a *App) ApplyLoad(generate bool, eps, feds, audits int) {
 	a.audits = audits
 
 	if generate {
-		log.Info().Int("eps", eps).Int("feds", feds).Int("audits", audits).Msg("enabling load generator")
+		log.Info().Int("eps", eps).Int("feds", feds).Int("audits", audits).Msg("setting load generator")
 	} else {
 		log.Info().Msg("load generating disabled")
 	}

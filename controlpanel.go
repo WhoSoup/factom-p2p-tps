@@ -163,10 +163,9 @@ func (cp *ControlPanel) enable(rw http.ResponseWriter, r *http.Request) {
 	cp.startSeed(set)
 
 	cp.enabler.Do(func() {
-		cp.app.SetNetwork(cp.n)
 		cp.netEnabled = true
 		go cp.n.Start()
-		go cp.app.Launch()
+		go cp.app.Launch(cp.n)
 	})
 
 	http.Redirect(rw, r, "/", http.StatusSeeOther)
