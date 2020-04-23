@@ -34,6 +34,35 @@ type Stats struct {
 	NonDupeMessages []uint64
 	Messages        []uint64
 	Sent            []uint64
+
+	TPS      uint64
+	TPSCount uint64
+	EPS      uint64
+	EPSCount uint64
+
+	Metrics network.Metrics
+}
+
+func (s *Stats) AddMsg(msg byte, dupe bool) {
+	s.mtx.Lock()
+	s.Messages[msg]++
+	if !dupe {
+		s.NonDupeMessages[msg]++
+	}
+	s.mtx.Unlock()
+}
+
+func (s *Stats) AddSent(msg byte, count uint64) {
+	s.mtx.Lock()
+	s.Sent[msg] += count
+	s.mtx.Unlock()
+}
+
+func (s *Stats) AddPS(eps, tps uint64) {
+	s.mtx.Lock()
+	s.TPSCount += tps
+	s.EPSCount += eps
+	s.mtx.Unlock()
 }
 
 func (s *Stats) Waste(b int) float64 {
@@ -63,6 +92,12 @@ func NewApp() *App {
 }
 
 func (a *App) Stats() *Stats {
+	a.stats.mtx.Lock()
+	defer a.stats.mtx.Unlock()
+	if a.n == nil {
+		return &Stats{}
+	}
+	a.stats.Metrics = a.n.Metrics()
 	return a.stats
 }
 
@@ -95,7 +130,14 @@ func (a *App) generateLoad() {
 				default:
 				}
 
-				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(a.gen.WeightedRandomType()))
+				mtype := a.gen.WeightedRandomType()
+				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(mtype))
+				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+
+				if mtype != Transaction {
+					a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(RevealEntry))
+					a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+				}
 			}
 		}(l)
 	}
@@ -110,11 +152,9 @@ func (a *App) worker() {
 		}
 
 		hash := sha256.Sum256(msg)
-		a.stats.mtx.Lock()
-		a.stats.Messages[msg[0]]++
-		a.stats.mtx.RUnlock()
-
-		if !a.replay.Dupe(fmt.Sprintf("%x", hash)) {
+		if a.replay.Dupe(fmt.Sprintf("%x", hash)) {
+			a.stats.AddMsg(msg[0], true)
+		} else {
 			sent := byte(0)
 			switch msg[0] {
 			case ACK, EOM, Heartbeat, CommitChain, CommitEntry, RevealEntry, DBSig, Transaction: // rebroadcast
@@ -133,12 +173,17 @@ func (a *App) worker() {
 			default:
 				log.Warn().Str("peer", peer).Int("len", len(msg)).Msg("received invalid message with payload")
 			}
-			a.stats.mtx.Lock()
-			a.stats.NonDupeMessages[msg[0]]++
-			if sent > 0 {
-				a.stats.Sent[sent]++
+			a.stats.AddMsg(msg[0], false)
+			if sent != 0 {
+				a.stats.AddSent(sent, 1)
 			}
-			a.stats.mtx.Unlock()
+
+			switch msg[0] {
+			case CommitChain, CommitEntry:
+				a.stats.AddPS(0, 1)
+			case RevealEntry, Transaction:
+				a.stats.AddPS(1, 1)
+			}
 
 			if a.generate && msg[0] == ACK && rand.Float64() < missingmsgLikelihood {
 				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(MissingMsg))
@@ -148,9 +193,23 @@ func (a *App) worker() {
 	}
 }
 
+func (a *App) calculateStats() {
+	ticker := time.NewTicker(time.Second)
+	for range ticker.C {
+		a.stats.mtx.Lock()
+		a.stats.EPS = a.stats.EPSCount
+		a.stats.EPSCount = 0
+		a.stats.TPS = a.stats.TPSCount
+		a.stats.TPSCount = 0
+		a.stats.mtx.Unlock()
+	}
+}
+
 func (a *App) Launch(n network.Network) {
 	a.n = n
 
+	go a.generateLoad()
+	go a.calculateStats()
 	for i := 0; i < workers; i++ {
 		go a.worker()
 	}
@@ -207,7 +266,9 @@ func (a *App) ApplyLoad(generate bool, eps, feds, audits int) {
 
 	if generate {
 		log.Info().Int("eps", eps).Int("feds", feds).Int("audits", audits).Msg("setting load generator")
+		a.loadchange <- eps
 	} else {
 		log.Info().Msg("load generating disabled")
+		a.loadchange <- 0
 	}
 }

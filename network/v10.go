@@ -1,6 +1,8 @@
 package network
 
 import (
+	"time"
+
 	p2p "github.com/WhoSoup/factom-p2p"
 	"github.com/rs/zerolog/log"
 )
@@ -8,6 +10,9 @@ import (
 type V10 struct {
 	config p2p.Configuration
 	n      *p2p.Network
+
+	metrics   Metrics
+	connected []string
 }
 
 var _ Network = (*V10)(nil)
@@ -19,7 +24,40 @@ func NewV10(version int) Network {
 	return v10
 }
 
+func (v10 *V10) Metrics() Metrics {
+	return v10.metrics
+}
+func (v10 *V10) processMetrics() {
+	ticker := time.NewTicker(time.Second)
+	old := make(map[string]p2p.PeerMetrics)
+
+	for range ticker.C {
+		nm := Metrics{}
+		newm := v10.n.GetPeerMetrics()
+		connected := make([]string, 0, len(newm))
+		for hash, m := range newm {
+			connected = append(connected, hash)
+			// check if new peer
+			if oldmetrics, ok := old[hash]; ok {
+				nm.BytesDown += m.BytesReceived - oldmetrics.BytesReceived
+				nm.BytesUp += m.BytesSent - oldmetrics.BytesSent
+				nm.MessagesDown += m.MessagesReceived - oldmetrics.MessagesReceived
+				nm.MessagesUp += m.MessagesSent - oldmetrics.MessagesSent
+			} else {
+				nm.BytesDown += m.BytesReceived
+				nm.BytesUp += m.BytesSent
+				nm.MessagesDown += m.MessagesReceived
+				nm.MessagesUp += m.MessagesSent
+			}
+		}
+		old = newm
+		v10.metrics = nm
+		v10.connected = connected
+	}
+}
+
 func (v10 *V10) Start() {
+	go v10.processMetrics()
 	log.Fatal().Err(v10.n.Run())
 }
 func (v10 *V10) Init(name, port, seed string) error {
@@ -34,11 +72,7 @@ func (v10 *V10) Init(name, port, seed string) error {
 	return nil
 }
 func (v10 *V10) Peers() []string {
-	var peers []string
-	for _, m := range v10.n.GetPeerMetrics() {
-		peers = append(peers, m.Hash)
-	}
-	return peers
+	return v10.connected
 }
 func (v10 *V10) DeliverMessage(target string, payload []byte) {
 	parc := p2p.NewParcel(target, payload)

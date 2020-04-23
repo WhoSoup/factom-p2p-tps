@@ -36,6 +36,7 @@ func NewGenerator(prct map[byte]float64) *Generator {
 func (g *Generator) CreateMessage(typ byte) []byte {
 	buf := make([]byte, avgSize[typ])
 	rand.Read(buf)
+	buf[0] = typ
 	return buf
 }
 

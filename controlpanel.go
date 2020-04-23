@@ -14,13 +14,16 @@ import (
 )
 
 type ControlPanel struct {
-	port       string
-	n          network.Network
-	template   *template.Template
-	netEnabled bool
-	eps        int
-	enabler    sync.Once
-	app        *app.App
+	port     string
+	n        network.Network
+	template *template.Template
+	enabled  bool
+	eps      int
+	audits   int
+	feds     int
+	load     bool
+	enabler  sync.Once
+	app      *app.App
 }
 
 func NewControlPanel(port string) (*ControlPanel, error) {
@@ -31,6 +34,8 @@ func NewControlPanel(port string) (*ControlPanel, error) {
 	}
 
 	cp := new(ControlPanel)
+	cp.audits = 26
+	cp.feds = 27
 	cp.port = port
 	cp.template = template
 	cp.app = app.NewApp()
@@ -78,6 +83,7 @@ func (cp *ControlPanel) Launch() error {
 	mux.HandleFunc("/enable", cp.enable)
 	mux.HandleFunc("/peers", cp.peers)
 	mux.HandleFunc("/report", cp.report)
+	mux.HandleFunc("/eps", cp.epsf)
 
 	return http.ListenAndServe(fmt.Sprintf(":%s", cp.port), mux)
 }
@@ -133,11 +139,44 @@ func (cp *ControlPanel) exec(templ string, rw http.ResponseWriter, data interfac
 
 func (cp *ControlPanel) index(rw http.ResponseWriter, r *http.Request) {
 	cp.exec("index.html", rw, map[string]interface{}{
-		"enabled": cp.netEnabled,
+		"enabled": cp.enabled,
+		"load":    cp.load,
 		"eps":     cp.eps,
-		"feds":    28,
-		"audits":  26,
+		"feds":    cp.feds,
+		"audits":  cp.audits,
 	})
+}
+
+func (cp *ControlPanel) epsf(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	enable := r.FormValue("enable") == "1"
+	eps, err := strconv.Atoi(r.FormValue("eps"))
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusNotAcceptable)
+		return
+	}
+	feds, err := strconv.Atoi(r.FormValue("feds"))
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusNotAcceptable)
+		return
+	}
+	audits, err := strconv.Atoi(r.FormValue("audits"))
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusNotAcceptable)
+		return
+	}
+
+	cp.app.ApplyLoad(enable, eps, feds, audits)
+	cp.load = enable
+	cp.eps = eps
+	cp.feds = feds
+	cp.audits = audits
+
+	http.Redirect(rw, r, "/", http.StatusSeeOther)
 }
 
 func (cp *ControlPanel) enable(rw http.ResponseWriter, r *http.Request) {
@@ -163,7 +202,7 @@ func (cp *ControlPanel) enable(rw http.ResponseWriter, r *http.Request) {
 	cp.startSeed(set)
 
 	cp.enabler.Do(func() {
-		cp.netEnabled = true
+		cp.enabled = true
 		go cp.n.Start()
 		go cp.app.Launch(cp.n)
 	})

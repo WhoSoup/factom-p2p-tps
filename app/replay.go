@@ -35,8 +35,8 @@ func (r *Replay) start() {
 }
 
 func (r *Replay) Dupe(hash string) bool {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
 
 	for _, b := range r.buckets {
 		if b[hash] {

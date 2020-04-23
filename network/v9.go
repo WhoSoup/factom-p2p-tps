@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/FactomProject/factomd/p2p"
@@ -10,11 +9,11 @@ import (
 )
 
 type V9 struct {
-	metrics    chan interface{}
-	controller *p2p.Controller
+	metricsConsumer chan interface{}
+	controller      *p2p.Controller
 
-	peerMtx   sync.RWMutex
 	connected []string
+	metrics   Metrics
 }
 
 var _ Network = (*V9)(nil)
@@ -25,16 +24,42 @@ func NewV9() Network {
 }
 
 func (v9 *V9) consumeMetrics() {
-	for m := range v9.metrics {
+	last := time.Now()
+	old := make(map[string]p2p.ConnectionMetrics)
+	for m := range v9.metricsConsumer {
 		if mm, ok := m.(map[string]p2p.ConnectionMetrics); ok {
-			v9.peerMtx.Lock()
-			v9.connected = make([]string, 0, len(mm))
-			for p := range mm {
-				v9.connected = append(v9.connected, p)
+			secs := time.Since(last).Seconds()
+			last = time.Now()
+			var metrics Metrics
+			connected := make([]string, 0, len(mm))
+			for p, info := range mm {
+				connected = append(connected, p)
+				if oldinfo, ok := old[p]; ok {
+					metrics.BytesDown += uint64(info.BytesReceived - oldinfo.BytesReceived)
+					metrics.BytesUp += uint64(info.BytesSent - oldinfo.BytesSent)
+					metrics.MessagesDown += uint64(info.MessagesReceived - oldinfo.MessagesReceived)
+					metrics.MessagesUp += uint64(info.MessagesSent - oldinfo.MessagesSent)
+				} else {
+					metrics.BytesDown += uint64(info.BytesReceived)
+					metrics.BytesUp += uint64(info.BytesSent)
+					metrics.MessagesDown += uint64(info.MessagesReceived)
+					metrics.MessagesUp += uint64(info.MessagesSent)
+				}
 			}
-			v9.peerMtx.Unlock()
+
+			// normalize to 1s
+			metrics.BytesDown = uint64(float64(metrics.BytesDown) / secs)
+			metrics.BytesUp = uint64(float64(metrics.BytesUp) / secs)
+			metrics.MessagesDown = uint64(float64(metrics.MessagesDown) / secs)
+			metrics.MessagesUp = uint64(float64(metrics.MessagesUp) / secs)
+
+			v9.connected = connected
 		}
 	}
+}
+
+func (v9 *V9) Metrics() Metrics {
+	return v9.metrics
 }
 
 func (v9 *V9) Start() {
@@ -43,7 +68,7 @@ func (v9 *V9) Start() {
 }
 
 func (v9 *V9) Init(name, port, seed string) error {
-	v9.metrics = make(chan interface{}, p2p.StandardChannelSize)
+	v9.metricsConsumer = make(chan interface{}, p2p.StandardChannelSize)
 	p2p.NetworkDeadline = time.Minute * 5
 	p2p.CurrentNetwork = NetworkID
 	p2p.NetworkListenPort = port
@@ -58,7 +83,7 @@ func (v9 *V9) Init(name, port, seed string) error {
 		SeedURL:                  seed,
 		ConfigPeers:              "",
 		CmdLinePeers:             "",
-		ConnectionMetricsChannel: v9.metrics,
+		ConnectionMetricsChannel: v9.metricsConsumer,
 	}
 	v9.controller = new(p2p.Controller).Init(ci)
 	return nil

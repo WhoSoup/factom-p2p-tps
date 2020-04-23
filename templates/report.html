@@ -19,3 +19,32 @@
 {{ end }}
 {{ end }}
 </table>
+<h2>Network</h2>
+<table>
+    <tr>
+        <td></td>
+        <td>Down</td>
+        <td>Up</td>
+    </tr>
+    <tr>
+        <td>Data</td>
+        <td>{{ .Metrics.BytesDown }}</td>
+        <td>{{ .Metrics.BytesUp }}</td>
+    </tr>
+    <tr>
+        <td>MPS</td>
+        <td>{{ .Metrics.MessagesDown }}</td>
+        <td>{{ .Metrics.MessagesUp }}</td>
+    </tr>
+</table>
+<h2>App</h2>
+<table>
+    <tr>
+        <td>TPS</td>
+        <td>{{ .TPS }}</td>
+    </tr>
+    <tr>
+        <td>EPS</td>
+        <td>{{ .EPS }}</td>
+    </tr>
+</table>
