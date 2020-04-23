@@ -20,6 +20,7 @@ var _ Network = (*V10)(nil)
 func NewV10(version int) Network {
 	v10 := new(V10)
 	v10.config = p2p.DefaultP2PConfiguration()
+	v10.config.ChannelCapacity = 5000
 	v10.config.ProtocolVersion = uint16(version)
 	return v10
 }

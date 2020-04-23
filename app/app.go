@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -119,10 +120,15 @@ func (a *App) generateLoad() {
 		}
 
 		go func(eps int) {
-			t := time.Second / time.Duration(eps)
-			log.Info().Int("eps", eps).Dur("interval", t).Msg("starting load gen")
-			defer log.Info().Int("eps", eps).Dur("interval", t).Msg("ending load gen")
-			ticker := time.NewTicker(t)
+			ep10ms := float64(eps) / 100
+
+			burst := int(ep10ms)
+			leftover := ep10ms - float64(burst)
+
+			log.Info().Int("eps", eps).Int("burst", burst).Float64("leftover", leftover).Msg("starting load gen")
+			defer log.Info().Int("eps", eps).Msg("ending load gen")
+			ticker := time.NewTicker(time.Millisecond * 10)
+			accumulator := 0.0
 			for range ticker.C {
 				select {
 				case <-stopper:
@@ -130,17 +136,31 @@ func (a *App) generateLoad() {
 				default:
 				}
 
-				mtype := a.gen.WeightedRandomType()
-				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(mtype))
-				a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+				for i := 0; i < burst; i++ {
+					a.SendRandomizedMessage()
+				}
 
-				if mtype != Transaction {
-					a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(RevealEntry))
-					a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+				accumulator += leftover
+				if accumulator > 1 {
+					accumulator--
+					a.SendRandomizedMessage()
 				}
 			}
 		}(l)
 	}
+}
+
+func (a *App) SendRandomizedMessage() {
+	mtype := a.gen.WeightedRandomType()
+	a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(mtype))
+	a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+
+	if mtype != Transaction {
+		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(RevealEntry))
+		a.n.DeliverMessage(a.n.RandomFlag(), a.gen.CreateMessage(ACK))
+	}
+
+	runtime.Gosched()
 }
 
 func (a *App) worker() {

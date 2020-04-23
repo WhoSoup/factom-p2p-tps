@@ -1,9 +1,12 @@
 package network
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"time"
 
+	"github.com/FactomProject/factomd/common/messages"
+	"github.com/FactomProject/factomd/common/primitives"
 	"github.com/FactomProject/factomd/p2p"
 	"github.com/rs/zerolog/log"
 )
@@ -91,14 +94,20 @@ func (v9 *V9) Init(name, port, seed string) error {
 
 func (v9 *V9) Peers() []string { return v9.connected }
 func (v9 *V9) DeliverMessage(target string, payload []byte) {
-	parc := p2p.NewParcel(NetworkID, payload)
+	// we just need msg.GetMsgHash().Fixed(), nothing else
+	// ack caches its msghash so it works here
+	ack := new(messages.Ack)
+	sha := sha256.Sum256(payload)
+	ack.MsgHash = primitives.NewHash(sha[:])
+
+	parc := p2p.NewParcelMsg(NetworkID, payload, ack)
 	if target == "" {
 		target = p2p.BroadcastFlag
 	}
 	parc.Header.TargetPeer = target
 	parc.Header.Type = p2p.TypeMessage
 
-	p2p.BlockFreeChannelSend(v9.controller.ToNetwork, parc)
+	p2p.BlockFreeChannelSend(v9.controller.ToNetwork, *parc)
 }
 func (v9 *V9) ReadMessage() (string, []byte) {
 	raw := <-v9.controller.FromNetwork
