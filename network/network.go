@@ -20,3 +20,10 @@ type Metrics struct {
 	MessagesDown uint64
 	MessagesUp   uint64
 }
+
+func (m Metrics) BytesDownF() string {
+	return prettyBytes(m.BytesDown) + "/s"
+}
+func (m Metrics) BytesUpF() string {
+	return prettyBytes(m.BytesUp) + "/s"
+}

@@ -8,7 +8,7 @@
     </tr>
     <tr>
         <td>P2P Port</td>
-        <td><input type="text" name="p2pport" value="8111"></td>
+        <td><input type="text" name="p2pport" value="{{ index . "p2pport" }}"></td>
     </tr>
     <tr>
         <td>Protocol</td>
@@ -23,10 +23,11 @@
         <td>Seed Server</td>
         <td><input type="text" name="seed" value="http://localhost:8112/seed.txt"></td>
     </tr>
+{{ if index . "host" }}
     <tr><td colspan="2"><hr></td></tr>
     <tr>
         <td></td>
-        <td><label for="seed-start"><input type="checkbox" name="seed-start" id="seed-start" value="1">Start a Seed Server</label></td>
+        <td><label for="seed-start"><input type="checkbox" name="seed-start" id="seed-start" value="1" checked>Start a Seed Server</label></td>
     </tr>
     <tr>
         <td>Seed Server Port</td>
@@ -37,6 +38,7 @@
         <td><textarea name="seed-content" rows="5">127.0.0.1:8111</textarea></td>
     </tr>
     <tr><td colspan="2"><hr></td></tr>
+{{ end }}
     <tr><td colspan="2"><button type="submit">Connect</button></td></tr>
 </table>
 </form>

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,6 +15,7 @@ import (
 )
 
 type ControlPanel struct {
+	host     bool
 	port     string
 	n        network.Network
 	template *template.Template
@@ -26,7 +28,7 @@ type ControlPanel struct {
 	app      *app.App
 }
 
-func NewControlPanel(port string) (*ControlPanel, error) {
+func NewControlPanel(port string, host bool) (*ControlPanel, error) {
 
 	template, err := template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -34,6 +36,7 @@ func NewControlPanel(port string) (*ControlPanel, error) {
 	}
 
 	cp := new(ControlPanel)
+	cp.host = host
 	cp.audits = 26
 	cp.feds = 27
 	cp.port = port
@@ -138,7 +141,13 @@ func (cp *ControlPanel) exec(templ string, rw http.ResponseWriter, data interfac
 }
 
 func (cp *ControlPanel) index(rw http.ResponseWriter, r *http.Request) {
+	p := "8111"
+	if !cp.host && !cp.enabled {
+		p = fmt.Sprintf("%d", 10001+rand.Intn(1024))
+	}
 	cp.exec("index.html", rw, map[string]interface{}{
+		"p2pport": p,
+		"host":    cp.host,
 		"enabled": cp.enabled,
 		"load":    cp.load,
 		"eps":     cp.eps,

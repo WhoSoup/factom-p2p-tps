@@ -9,6 +9,7 @@ import (
 	"github.com/FactomProject/factomd/common/primitives"
 	"github.com/FactomProject/factomd/p2p"
 	"github.com/rs/zerolog/log"
+	"github.com/sirupsen/logrus"
 )
 
 type V9 struct {
@@ -75,7 +76,9 @@ func (v9 *V9) Init(name, port, seed string) error {
 	p2p.NetworkDeadline = time.Minute * 5
 	p2p.CurrentNetwork = NetworkID
 	p2p.NetworkListenPort = port
+	logrus.SetLevel(logrus.ErrorLevel)
 
+	p2p.StandardChannelSize = 10000
 	ci := p2p.ControllerInit{
 		NodeName:                 name,
 		Port:                     port,

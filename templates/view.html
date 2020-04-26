@@ -1,3 +1,4 @@
+{{ if index . "host" }}
 <div id="tps"><h2>Load Generator</h2>
 <form action="/eps" method="POST">
 <table>
@@ -24,6 +25,7 @@
 </table>
 </form>    
 </div>
+{{ end }}
 
 <div id="peers">&nbsp;</div><div id="report">&nbsp;</div>
 <script type="text/javascript">

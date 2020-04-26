@@ -5,6 +5,7 @@ import (
 
 	p2p "github.com/WhoSoup/factom-p2p"
 	"github.com/rs/zerolog/log"
+	"github.com/sirupsen/logrus"
 )
 
 type V10 struct {
@@ -20,8 +21,11 @@ var _ Network = (*V10)(nil)
 func NewV10(version int) Network {
 	v10 := new(V10)
 	v10.config = p2p.DefaultP2PConfiguration()
-	v10.config.ChannelCapacity = 5000
+	v10.config.ChannelCapacity = 10000
 	v10.config.ProtocolVersion = uint16(version)
+	if version == 11 {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 	return v10
 }
 
