@@ -29,6 +29,12 @@
 
 <div id="peers">&nbsp;</div><div id="report">&nbsp;</div>
 <script type="text/javascript">
+function showPeers() {
+    $("#peers").load("/peers")
+}
+function showReport() {
+    $("#report").load("/report")
+}
 $(document).ready(function() {
     setInterval(showPeers, 500);
     setInterval(showReport, 500);

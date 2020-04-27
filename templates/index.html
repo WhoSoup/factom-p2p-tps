@@ -3,9 +3,54 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="static/style.css">
+    <style type="text/css">
+* { font-family: sans-serif; }
+#peers {
+    float:left;
+    display: block;
+    width: 280px;
+    background-color: bisque;
+    margin-right: 1em;
+    min-height: 100px;
+}
+#peers ul {
+    margin: 0;
+    padding-left: 1em;
+}
+#peers li {
+    list-style-type: none;
+}
+h2 {
+    font-size: 18px;
+    text-indent: .5em;
+}
+#tps {
+    background-color: lightseagreen;
+    padding: 1em;
+}
+#tps h2 {
+    display: inline;
+}
+#report .bit {
+    display: inline-block;
+    margin-left: 10px;
+    background-color:lightsteelblue;
+}
+#appreport {
+    float: left;
+}
+#report td {
+    padding: 5px;
+}
+#report tr:first-child {
+    background-color: steelblue;
+    color: white;
+}
+#report tr:nth-child(even) {
+    background-color: #b7cae2;
+}
+    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.0/jquery.min.js" integrity="sha256-xNzN2a4ltkB44Mc/Jz3pT4iU1cmeR0FkXs4pru/JxaQ=" crossorigin="anonymous"></script>
-    <script src="static/tps.js"></script>
     <title>Factom TPS Simulator Control Panel</title>
 </head>
 <body>

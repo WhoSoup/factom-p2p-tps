@@ -3,7 +3,8 @@ package network
 const NetworkID = 0xf00b47
 
 type Network interface {
-	Init(name, port, seed string) error
+	Init(name, port, seed string, bcast int) (func(), error)
+	Name() string
 	Peers() []string
 	Metrics() Metrics
 	DeliverMessage(string, []byte)

@@ -1,3 +1,4 @@
+<div class="bit" id="appreport">
 <h2>App Report</h2>
 <table>
     <tr>
@@ -13,12 +14,14 @@
     <td>{{ $.Name $key }}</td>
     <td>{{ . }}</td>
     <td>{{ index $.Messages $key }}</td>
-    <td>{{ $.Waste $key }} </td>
+    <td>{{ printf "%.2f" ($.Waste $key) }} </td>
     <td>{{ index $.Sent $key }}</td>
 </tr>
 {{ end }}
 {{ end }}
 </table>
+</div>
+<div class="bit">
 <h2>Network</h2>
 <table>
     <tr>
@@ -36,15 +39,15 @@
         <td>{{ .Metrics.MessagesDown }}</td>
         <td>{{ .Metrics.MessagesUp }}</td>
     </tr>
-</table>
-<h2>App</h2>
-<table>
     <tr>
         <td>TPS</td>
         <td>{{ .TPS }}</td>
+        <td></td>
     </tr>
     <tr>
         <td>EPS</td>
         <td>{{ .EPS }}</td>
+        <td></td>
     </tr>
 </table>
+</div>

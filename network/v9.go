@@ -3,6 +3,8 @@ package network
 import (
 	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/FactomProject/factomd/common/messages"
@@ -13,6 +15,7 @@ import (
 )
 
 type V9 struct {
+	name            string
 	metricsConsumer chan interface{}
 	controller      *p2p.Controller
 
@@ -70,19 +73,27 @@ func (v9 *V9) Start() {
 	v9.controller.StartNetwork()
 	go v9.consumeMetrics()
 }
-
-func (v9 *V9) Init(name, port, seed string) error {
+func (v9 *V9) Name() string {
+	return fmt.Sprintf("%s-%d", v9.name, p2p.NodeID)
+}
+func (v9 *V9) Init(name, port, seed string, bcast int) (func(), error) {
+	file, err := ioutil.TempFile("", "peer.json")
+	if err != nil {
+		return nil, err
+	}
+	v9.name = name
 	v9.metricsConsumer = make(chan interface{}, p2p.StandardChannelSize)
+	p2p.MinumumSharingQualityScore = 0
+	p2p.NumberPeersToBroadcast = bcast
 	p2p.NetworkDeadline = time.Minute * 5
 	p2p.CurrentNetwork = NetworkID
 	p2p.NetworkListenPort = port
 	logrus.SetLevel(logrus.ErrorLevel)
-
 	p2p.StandardChannelSize = 10000
 	ci := p2p.ControllerInit{
 		NodeName:                 name,
 		Port:                     port,
-		PeersFile:                "",
+		PeersFile:                file.Name(),
 		Network:                  NetworkID,
 		Exclusive:                false,
 		ExclusiveIn:              false,
@@ -92,7 +103,7 @@ func (v9 *V9) Init(name, port, seed string) error {
 		ConnectionMetricsChannel: v9.metricsConsumer,
 	}
 	v9.controller = new(p2p.Controller).Init(ci)
-	return nil
+	return func() { os.Remove(file.Name()) }, nil
 }
 
 func (v9 *V9) Peers() []string { return v9.connected }

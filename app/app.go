@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -17,9 +18,10 @@ type App struct {
 	gen    *Generator
 	replay *Replay
 
-	Height int
-	Minute int
-	mtx    sync.RWMutex
+	Height     int
+	Minute     int
+	mtx        sync.RWMutex
+	recordOnce sync.Once
 
 	generate          bool
 	feds, audits, eps int
@@ -114,6 +116,8 @@ func (a *App) generateLoad() {
 			continue
 		}
 
+		a.n.DeliverMessage(a.n.FullBroadcastFlag(), a.gen.CreateMessage(StartRecording))
+
 		stopper := make(chan interface{})
 		a.loadcancel = func() {
 			close(stopper)
@@ -163,6 +167,32 @@ func (a *App) SendRandomizedMessage() {
 	runtime.Gosched()
 }
 
+func (a *App) StartRecording() {
+	a.recordOnce.Do(func() { go a.record() })
+}
+
+func (a *App) record() {
+	f, err := os.Create(fmt.Sprintf("run-%s.log", a.n.Name()))
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "Recording session %s\n", time.Now())
+	fmt.Fprintln(f, "====================")
+
+	t := time.NewTicker(time.Second)
+	for range t.C {
+		if a.stats == nil {
+			fmt.Fprintln(f, time.Now(), "No stats yet")
+			continue
+		}
+		a.stats.mtx.RLock()
+		fmt.Fprintf(f, "%d, %d, %d, %d, %d, %d, %d, %d, %d\n", time.Now().Unix(), a.stats.EPS, a.stats.EPSCount, a.stats.TPS, a.stats.TPSCount, a.stats.Metrics.BytesDown, a.stats.Metrics.BytesUp, a.stats.Metrics.MessagesDown, a.stats.Metrics.MessagesUp)
+		a.stats.mtx.RUnlock()
+	}
+}
+
 func (a *App) worker() {
 	for {
 		peer, msg := a.n.ReadMessage()
@@ -177,6 +207,10 @@ func (a *App) worker() {
 		} else {
 			sent := byte(0)
 			switch msg[0] {
+			case StartRecording:
+				a.n.DeliverMessage(a.n.FullBroadcastFlag(), msg)
+				a.StartRecording()
+				sent = msg[0]
 			case ACK, EOM, Heartbeat, CommitChain, CommitEntry, RevealEntry, DBSig, Transaction: // rebroadcast
 				a.n.DeliverMessage(a.n.BroadcastFlag(), msg)
 				sent = msg[0]

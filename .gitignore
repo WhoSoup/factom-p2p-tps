@@ -15,3 +15,5 @@
 # vendor/
 
 *.txt
+factom-p2p-tps.*
+*.log

@@ -18,13 +18,14 @@ func main() {
 	//name := flag.String("name", "", "the name of this specific node")
 	port := flag.String("port", "7999", "the port for the control panel")
 	host := flag.Bool("host", false, "enable to expose the host functionality")
+	bcast := flag.Int("broadcast", 16, "number of peers to send broadcasts to")
 	//p2pport := flag.String("p2pport", "8111", "the port to use for this client (if running multiple nodes on one machine)")
 	//seed := flag.String("seed", "", "the url of the seed server")
 	///	flag.StringVar(&seedServer, "seedserver", "", "if this is set, a seed server is started containing the addresses listed (comma separated)")
 	//	flag.StringVar(&seedPort, "seedport", "8112", "the port of the seed server")
 	flag.Parse()
 
-	cp, err := NewControlPanel(*port, *host)
+	cp, err := NewControlPanel(*port, *host, *bcast)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to start control panel")
 	}

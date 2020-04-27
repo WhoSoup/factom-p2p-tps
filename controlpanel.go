@@ -5,8 +5,12 @@ import (
 	"html/template"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/WhoSoup/factom-p2p-tps/app"
 
@@ -15,9 +19,11 @@ import (
 )
 
 type ControlPanel struct {
+	bcast    int
 	host     bool
 	port     string
 	n        network.Network
+	cancel   func()
 	template *template.Template
 	enabled  bool
 	eps      int
@@ -28,14 +34,14 @@ type ControlPanel struct {
 	app      *app.App
 }
 
-func NewControlPanel(port string, host bool) (*ControlPanel, error) {
-
+func NewControlPanel(port string, host bool, bcast int) (*ControlPanel, error) {
 	template, err := template.ParseGlob("templates/*.html")
 	if err != nil {
 		return nil, err
 	}
 
 	cp := new(ControlPanel)
+	cp.bcast = bcast
 	cp.host = host
 	cp.audits = 26
 	cp.feds = 27
@@ -43,6 +49,20 @@ func NewControlPanel(port string, host bool) (*ControlPanel, error) {
 	cp.template = template
 	cp.app = app.NewApp()
 	return cp, nil
+}
+
+func (cp *ControlPanel) Start() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go cp.n.Start()
+
+	<-c
+	fmt.Println("\n> Ctrl+c caught")
+	if cp.cancel != nil {
+		cp.cancel()
+	}
+	os.Exit(0)
 }
 
 func (cp *ControlPanel) createNetwork(s settings) error {
@@ -64,9 +84,13 @@ func (cp *ControlPanel) createNetwork(s settings) error {
 		log.Fatal().Msg("protocol verify fail")
 	}
 
-	n.Init(s.Name, s.P2PPort, s.Seed)
+	cancel, err := n.Init(s.Name, s.P2PPort, s.Seed, s.Broadcast)
+	if err != nil {
+		return err
+	}
 
 	cp.n = n
+	cp.cancel = cancel
 	return nil
 }
 
@@ -82,7 +106,6 @@ func (cp *ControlPanel) Launch() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", cp.index)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	mux.HandleFunc("/enable", cp.enable)
 	mux.HandleFunc("/peers", cp.peers)
 	mux.HandleFunc("/report", cp.report)
@@ -95,6 +118,7 @@ var validProtocols = []string{"p2p1-v9", "p2p2-v9", "p2p2-v10", "p2p2-v11"}
 
 type settings struct {
 	Name, P2PPort, Protocol, Seed, SeedStart, SeedPort, SeedContent string
+	Broadcast                                                       int
 }
 
 func (cp *ControlPanel) verify(s settings) error {
@@ -141,6 +165,9 @@ func (cp *ControlPanel) exec(templ string, rw http.ResponseWriter, data interfac
 }
 
 func (cp *ControlPanel) index(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Cache-Control", "no-cache, private, max-age=0")
+	rw.Header().Set("Expires", time.Unix(0, 0).Format(http.TimeFormat))
+	rw.Header().Set("Pragma", "no-cache")
 	p := "8111"
 	if !cp.host && !cp.enabled {
 		p = fmt.Sprintf("%d", 10001+rand.Intn(1024))
@@ -202,6 +229,7 @@ func (cp *ControlPanel) enable(rw http.ResponseWriter, r *http.Request) {
 		SeedStart:   r.FormValue("seed-start"),
 		SeedPort:    r.FormValue("seed-port"),
 		SeedContent: r.FormValue("seed-content"),
+		Broadcast:   cp.bcast,
 	}
 
 	if err := cp.createNetwork(set); err != nil {
@@ -212,7 +240,7 @@ func (cp *ControlPanel) enable(rw http.ResponseWriter, r *http.Request) {
 
 	cp.enabler.Do(func() {
 		cp.enabled = true
-		go cp.n.Start()
+		go cp.Start()
 		go cp.app.Launch(cp.n)
 	})
 

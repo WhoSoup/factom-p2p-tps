@@ -1,6 +1,8 @@
 package network
 
 import (
+	"fmt"
+	"math/rand"
 	"time"
 
 	p2p "github.com/WhoSoup/factom-p2p"
@@ -60,21 +62,25 @@ func (v10 *V10) processMetrics() {
 		v10.connected = connected
 	}
 }
-
+func (v10 *V10) Name() string {
+	return fmt.Sprintf("%s-%d", v10.config.NodeName, v10.config.NodeID)
+}
 func (v10 *V10) Start() {
 	go v10.processMetrics()
 	log.Fatal().Err(v10.n.Run())
 }
-func (v10 *V10) Init(name, port, seed string) error {
+func (v10 *V10) Init(name, port, seed string, bcast int) (func(), error) {
 	v10.config.NodeName = name
 	v10.config.SeedURL = seed
 	v10.config.ListenPort = port
+	v10.config.Fanout = uint(bcast)
+	v10.config.NodeID = rand.Uint32()
 	nn, err := p2p.NewNetwork(v10.config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	v10.n = nn
-	return nil
+	return func() {}, nil
 }
 func (v10 *V10) Peers() []string {
 	return v10.connected

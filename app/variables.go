@@ -17,6 +17,7 @@ const (
 	MissingReply
 	DBStateRequest
 	DBStateReply
+	StartRecording
 	MESSAGEMAX
 )
 
@@ -46,6 +47,8 @@ func MessageName(b int) string {
 		return "DBStateRequest"
 	case DBStateReply:
 		return "DBStateReply"
+	case StartRecording:
+		return "StartRecording"
 	}
 	return "UNKNOWN"
 }
@@ -65,6 +68,7 @@ var avgSize = map[byte]int{
 	MissingReply:   538,
 	DBStateRequest: 15,
 	DBStateReply:   785,
+	StartRecording: 1,
 }
 
 var minuteDuration = time.Minute
