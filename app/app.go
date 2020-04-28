@@ -312,15 +312,38 @@ func (a *App) sendEOMs() {
 
 func (a *App) ApplyLoad(generate bool, eps, feds, audits int) {
 	a.mtx.Lock()
-	defer a.mtx.Unlock()
+	if a.generate && generate {
+		log.Error().Msg("loadtest still running")
+		return
+	}
 	a.generate = generate
 	a.eps = eps
 	a.feds = feds
 	a.audits = audits
+	a.mtx.Unlock()
 
 	if generate {
-		log.Info().Int("eps", eps).Int("feds", feds).Int("audits", audits).Msg("setting load generator")
-		a.loadchange <- eps
+		log.Info().Int("eps", eps).Int("feds", feds).Int("audits", audits).Msg("setting load generator to ramp up to eps")
+		go func() {
+			if eps < 500 {
+				return
+			}
+			a.loadchange <- 1
+			load := 500
+			ticker := time.NewTicker(time.Second * 30)
+			for range ticker.C {
+				a.loadchange <- load
+				load += 500
+				if load > eps {
+					log.Info().Msg("load generator done")
+					break
+				}
+			}
+			a.mtx.Lock()
+			a.generate = false
+			a.mtx.Unlock()
+		}()
+
 	} else {
 		log.Info().Msg("load generating disabled")
 		a.loadchange <- 0

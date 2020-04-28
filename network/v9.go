@@ -61,6 +61,8 @@ func (v9 *V9) consumeMetrics() {
 			metrics.MessagesUp = uint64(float64(metrics.MessagesUp) / secs)
 
 			v9.connected = connected
+			v9.metrics = metrics
+			old = mm
 		}
 	}
 }
